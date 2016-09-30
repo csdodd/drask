@@ -20,162 +20,367 @@
   <meta name="msapplication-TileImage" content="/img/ms-icon-144x144.png">
   <meta name="theme-color" content="#ffffff">
   <link rel="stylesheet" type="text/css" href="/css/index.css">
-  <script src="js/clmtrackr.min.js"></script>
-  <script src="js/model_pca_20_svm.js"></script>
   <title>Get ya Drask on.</title>
 </head>
 
 <body>
-		<script src="./ext_js/dat.gui.min.js"></script>
-		<script src="./ext_js/utils.js"></script>
-		<script src="./ext_js/jsfeat-min.js"></script>
-		<script src="./ext_js/frontalface.js"></script>
-		<script src="./ext_js/jsfeat_detect.js"></script>
-		<script src="./ext_js/numeric-1.2.6.min.js"></script>
-		<script src="./ext_js/mosse.js"></script>
-		<script src="./ext_js/left_eye_filter.js"></script>
-		<script src="./ext_js/right_eye_filter.js"></script>
-		<script src="./ext_js/nose_filter.js"></script>
-		<script src="../models/model_pca_20_svm.js"></script>
-		<script src="../js/clm.js"></script>
-		<script src="../js/svmfilter_webgl.js"></script>
-		<script src="../js/svmfilter_fft.js"></script>
-		<script src="../js/mossefilter.js"></script>
-		<script src="../js/face_deformer.js"></script>
-		<div id="content">
-      <h2>Get ya Drask on.</h2>
-			<div id="container">
-				<!--<video id="videoel" width="500" height="375" preload="auto">-->
-				<video id="videoel" width="400" height="300" preload="auto">
-					<!--<source src="./media/Capture_1_092.ogv" type="video/ogg"/>-->
-				</video>
-				<canvas id="webgl" width="400" height="300"></canvas>
-			</div>
-			<br/>
-			<div id="text">
-				<div id="nogum" class="hide">
-					<p>There was some problem trying to capture your webcamera, please check that your browser supports WebRTC. Using a fallback video instead.</p>
-				</div>
-			</div>
-      <img id="drake" class="masks" src="./media/drake1.jpg"></img>
-			<script>
-				var vid = document.getElementById('videoel');
+  <script src="js/clmtrackr.min.js"></script>
+  <script src="js/model_pca_20_svm.js"></script>
+  <script src="js/dat.gui.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="models/model_pca_20_svm.js"></script>
+  <script src="js/face_deformer.js"></script>
+  <script src="js/jquery.min.js"></script>
+  <script src="js/poisson_new.js"></script>
 
-				var ctrack = new clm.tracker();
-				ctrack.init(pModel);
+  <div id="content">
+    <h2>Get ya Drask on</h2>
+    <div id="container">
+      <video id="videoel" width="400" height="300" preload="auto">
+      </video>
+      <canvas id="overlay" width="400" height="300"></canvas>
+      <canvas id="webgl" width="400" height="300"></canvas>
+    </div>
+    <br/>
+    <div id="controls">
+      <select name="mask" id="selectmask">
+        <option value="0">Started From the Bottom</option>
+        <option value="1">Worst Behavior</option>
+        <option value="2">Hotline Bling</option>
+      </select>
+    </div>
+    <canvas id="webgl2" width="400" height="300"></canvas>
+    <script>
+      var images = [
+        {"id":"drake", 	"path":"media/drake1.jpg"},
+        {"id":"drake2", 	"path":"media/drake2.jpg"},
+        {"id":"drake3", 	"path":"media/drake_crop.jpg"}
+      ];
 
-				function enablestart() {
-					startVideo();
-				}
+      // when everything is ready, automatically start everything ?
 
-				var insertAltVideo = function(video) {
+      var vid = document.getElementById('videoel');
+      var overlay = document.getElementById('overlay');
+      var overlayCC = overlay.getContext('2d');
 
-					if (supports_video()) {
-						if (supports_ogg_theora_video()) {
-							video.src = "./media/cap13_edit2.ogv";
-						} else if (supports_h264_baseline_video()) {
-							video.src = "./media/cap13_edit2.mp4";
-						} else {
-							return false;
-						}
-						//video.play();
-						return true;
-					} else return false;
-				}
+      /*********** Setup of video/webcam and checking for webGL support *********/
 
-				// check whether browser supports webGL
-				var webGLContext;
-				var webGLTestCanvas = document.createElement('canvas');
-				if (window.WebGLRenderingContext) {
-					webGLContext = webGLTestCanvas.getContext('webgl') || webGLTestCanvas.getContext('experimental-webgl');
-					if (!webGLContext || !webGLContext.getExtension('OES_texture_float')) {
-						webGLContext = null;
-					}
-				}
-				if (webGLContext == null) {
-					alert("Your browser does not seem to support WebGL. Unfortunately this face mask example depends on WebGL, so you'll have to try it in another browser. :(");
-				}
+      var videoReady = false;
+      var imagesReady = false;
 
-				navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-				window.URL = window.URL || window.webkitURL || window.msURL || window.mozURL;
+      function enablestart() {
+        if (videoReady && imagesReady) {
+          startVideo();
+        }
+      }
 
-				// check for camerasupport
-				if (navigator.getUserMedia) {
-					// set up stream
+      $(window).load(function() {
+          enablestart();
+      });
 
-					// chrome 19 shim
-					var videoSelector = {video : true};
-					if (window.navigator.appVersion.match(/Chrome\/(.*?) /)) {
-						var chromeVersion = parseInt(window.navigator.appVersion.match(/Chrome\/(\d+)\./)[1], 10);
-						if (chromeVersion < 20) {
-							videoSelector = "video";
-						}
-					};
+      var insertAltVideo = function(video) {
+        if (supports_video()) {
+          if (supports_ogg_theora_video()) {
+            video.src = "../media/cap13_edit2.ogv";
+          } else if (supports_h264_baseline_video()) {
+            video.src = "../media/cap13_edit2.mp4";
+          } else {
+            return false;
+          }
+          //video.play();
+          return true;
+        } else return false;
+      }
 
-					navigator.getUserMedia(videoSelector, function( stream ) {
-						if (vid.mozCaptureStream) {
-							vid.mozSrcObject = stream;
-						} else {
-							vid.src = (window.URL && window.URL.createObjectURL(stream)) || stream;
-						}
-						vid.play();
-					}, function() {
-						insertAltVideo(vid);
-						document.getElementById('nogum').className = "nohide";
-					});
-				} else {
-					insertAltVideo(vid)
-					document.getElementById('nogum').className = "nohide";
-				}
+      // check whether browser supports webGL
+      var webGLContext;
+      var webGLTestCanvas = document.createElement('canvas');
+      if (window.WebGLRenderingContext) {
+        webGLContext = webGLTestCanvas.getContext('webgl') || webGLTestCanvas.getContext('experimental-webgl');
+        if (!webGLContext || !webGLContext.getExtension('OES_texture_float')) {
+          webGLContext = null;
+        }
+      }
+      if (webGLContext == null) {
+        alert("Your browser does not seem to support WebGL. Unfortunately this face mask example depends on WebGL, so you'll have to try it in another browser. :(");
+      }
 
-				vid.addEventListener('canplay', enablestart, false);
+      navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+      window.URL = window.URL || window.webkitURL || window.msURL || window.mozURL;
 
-				function startVideo() {
-					// start video
-					vid.play();
-					// start tracking
-					ctrack.start(vid);
-					// start drawing face grid
-					drawGridLoop();
-				}
+      // check for camerasupport
+      if (navigator.getUserMedia) {
+        // set up stream
 
-				var positions;
-				var fd = new faceDeformer();
-				fd.init(document.getElementById('webgl'));
+        // chrome 19 shim
+        var videoSelector = {video : true};
+        if (window.navigator.appVersion.match(/Chrome\/(.*?) /)) {
+          var chromeVersion = parseInt(window.navigator.appVersion.match(/Chrome\/(\d+)\./)[1], 10);
+          if (chromeVersion < 20) {
+            videoSelector = "video";
+          }
+        };
 
-				var masks = {
-					"drake" : [[501.9643394612414,495.47200844750984],[502.142125936498,584.8872099203737],[515.3798573224177,666.8568578662934],[538.170368831663,741.4724120943437],[568.3211690895713,797.9870763250963],[615.1530245694933,854.3925068453999],[659.7942703455128,880.9656480239753],[704.2250596632006,884.9633113755516],[759.5091057999696,876.2285694507415],[799.3310301572574,857.6299975502469],[845.0670741024176,820.1060723523893],[887.6658366534455,763.0530404205214],[916.5992773442017,685.9420207782356],[921.5559612860181,597.9154784099603],[922.7549822460775,487.79721655026],[896.4096022715813,480.0352173139431],[887.3209421990076,452.4890973092367],[829.9782108975144,433.23505269999106],[776.9359324941549,440.9702360363998],[529.744620332579,486.1007833515623],[553.6537637828768,442.23506194592403],[613.2948253615716,433.80888994782356],[652.3795021470816,442.73822975461604],[563.6921676832196,508.90943867879434],[605.5112904568363,485.80443298889645],[652.4583435191629,507.1223757275101],[605.5740471896798,519.9394947698688],[610.525204850413,499.5201354256822],[868.2099062526822,507.0401607612514],[825.4639819056449,481.9320358111275],[777.1552115472383,504.37280447675266],[827.467282301357,514.2026780650706],[817.1470367053438,493.92927091513644],[716.575407608373,492.91519584148074],[664.6924063996192,592.6824443435181],[648.6080071004066,624.8097527747366],[662.4142787810073,651.654802319131],[716.6915535470237,659.7586894681015],[769.8187210595744,645.2167767539679],[783.795162111659,625.5950000035427],[763.1476164888139,586.7518478606074],[714.6042829728927,556.979867439787],[685.3837037007181,652.925940233728],[746.9931026845552,645.6450569645758],[629.7632728334304,725.2500917255202],[660.2781493375543,718.6564622905099],[693.9582576628362,702.8437223581216],[715.6230051447897,715.3650728688626],[743.6590597290327,699.2355831088313],[780.9280000087853,713.4556435918539],[809.7453049388122,734.506721827075],[774.7334963199983,764.1357246490251],[755.8047854407506,774.8072922420603],[720.4371998161832,780.1796059986312],[686.3734239294696,780.0434626505643],[660.1046229930791,771.0196107800159],[675.7863254722528,735.2481925161736],[718.4588759672423,738.5640950449517],[753.2699724154817,727.7375120688581],[752.0817743965955,725.5035477800105],[717.7420622093732,733.3695242543861],[675.9131515174233,729.2500383530223],[715.3126655352173,638.8886988649206],[581.0651163583224,495.8122348798231],[635.5984587674357,493.7055437279576],[629.7363480457074,516.4003860123875],[583.0351036423909,517.9494893178016],[851.4553543479446,488.4059489474364],[799.7359214469391,488.2883229587516],[802.5889263350832,511.0413138787222],[847.5689566608678,510.28032872317084]]
-				};
-				var currentMask = 0;
-				var animationRequest;
+        navigator.getUserMedia(videoSelector, function( stream ) {
+          if (vid.mozCaptureStream) {
+            vid.mozSrcObject = stream;
+          } else {
+            vid.src = (window.URL && window.URL.createObjectURL(stream)) || stream;
+          }
+          vid.play();
+        }, function() {
+          insertAltVideo(vid);
+        });
+      } else {
+        insertAltVideo(vid);
+      }
 
-				function drawGridLoop() {
-					// check whether mask has converged
-					var pn = ctrack.getConvergence();
-					if (pn < 0.4) {
-						loadMask();
-						requestAnimFrame(drawMaskLoop);
-					} else {
-						requestAnimFrame(drawGridLoop);
-					}
-				}
+      vid.addEventListener('canplay', function() {videoReady = true;enablestart();}, false);
 
-				function loadMask() {
-					var maskname = "drake";
-					fd.load(document.getElementById(maskname), masks[maskname], pModel);
-				}
+      /*********** Code for face substitution *********/
 
-				function drawMaskLoop() {
-					// get position of face
-					positions = ctrack.getCurrentPosition();
-					if (positions) {
-						// draw mask on top of face
-						fd.draw(positions);
-					}
-					animationRequest = requestAnimFrame(drawMaskLoop);
-				}
+      var animationRequest;
+      var positions;
 
-			</script>
-		</div>
-	</body>
+      var ctrack = new clm.tracker();
+      ctrack.init(pModel);
+
+      document.getElementById('selectmask').addEventListener('change', updateMask, false);
+
+      function updateMask(el) {
+        currentMask = parseInt(el.target.value, 10);
+        var positions = ctrack.getCurrentPosition(vid);
+        if (positions) {
+          switchMasks(positions);
+        }
+      }
+
+      function startVideo() {
+        // start video
+        vid.play();
+        // start tracking
+        ctrack.start(vid);
+        // start drawing face grid
+        drawGridLoop();
+      }
+
+      var fd = new faceDeformer();
+      fd.init(document.getElementById('webgl'));
+      var wc1 = document.getElementById('webgl').getContext('webgl') || document.getElementById('webgl').getContext('experimental-webgl')
+      wc1.clearColor(0,0,0,0);
+
+      var fd2 = new faceDeformer();
+      fd2.init(document.getElementById('webgl2'));
+      var wc2 = document.getElementById('webgl2').getContext('webgl') || document.getElementById('webgl2').getContext('experimental-webgl')
+      wc2.clearColor(0,0,0,0);
+
+      var masks = {
+          "drake" : [[75.74922618643903,154.45108527505295],[73.70649410152572,188.60312484507233],[76.04297554948964,223.47679202961683],[80.94744773936365,260.32889129675766],[92.75655082005912,292.8072908175021],[109.5620641275663,324.9845878189578],[134.69346475135526,346.6063481654103],[163.45461166452878,352.20111286545426],[197.5747874792273,347.5566975425299],[228.63271809736034,323.9728407105896],[250.28092141985692,294.2950797842618],[263.8435336361583,259.58784470259235],[270.28602973182035,223.6504808550857],[276.2742493999059,190.01296532974195],[272.4156294085166,158.5816887690746],[263.287183989009,149.0936208339004],[246.6825506441828,128.59518632648098],[216.9449405065668,123.74005845986017],[194.70338627762064,127.09661271953948],[92.0265323347493,127.73575483583846],[106.19507564192261,117.89510352787859],[131.03552365276985,119.10130318142204],[151.4827757241828,124.60660415660575],[103.73710526422252,156.32933683054557],[123.42492065454708,144.97793302226597],[141.58615266228296,158.6504582231533],[123.34603110114651,159.39201565209993],[124.30712996404934,152.33994452266316],[244.5161949224142,169.92140563890476],[223.43655937133155,150.176542477854],[203.1382782159568,163.166653943982],[223.2160876609885,166.8621590680118],[222.62009705864278,157.57947345051636],[171.58213248027488,148.77070738932753],[143.20796816927108,195.05699461286926],[137.1397826344145,213.3149682242885],[141.58043965065565,218.6827234750679],[165.56917637529764,222.6125735842459],[191.66214479895024,222.7862944842164],[201.14120443165072,216.51773217613916],[193.44065456306424,199.41402009745997],[167.29487201906127,180.58261195817934],[151.28818188944754,215.24622172891193],[180.59577700535294,219.26185793994756],[126.84807036415322,267.54752030305684],[136.55259088377426,250.20058838310413],[153.252982061533,246.78502691532688],[164.97740203626233,249.53982980698936],[177.80204373018037,247.99018399931055],[191.89843976353754,257.39419873852887],[200.71667295757476,273.4070603165996],[200.68025386587192,284.34673022073116],[185.1583491832391,296.20029980112133],[163.19117305227385,298.48085181814184],[143.3033639464337,293.5500301614568],[131.84653589812228,280.573103417712],[145.63733883639964,275.57795624978337],[164.3252252424105,277.75199273004745],[187.5934297819774,277.74367854423593],[187.2256804795314,264.1857631080185],[165.31900474379637,258.10911082917244],[143.89201572580134,257.913154837025],[163.45301978554494,210.8110067958175],[112.63204996166776,147.3572732487044],[135.64114019553338,150.65252158493837],[134.72059965359747,158.45189160090746],[112.83885707118698,160.1379958542907],[235.06213672862492,156.8486789076923],[213.00373600316638,155.4387531141279],[212.04848852288015,165.32776810608087],[234.92681342971716,169.3646779667337]],
+          "drake2" : [[206.41232774301938,263.27675995491296],[204.35398503581763,304.9962944830927],[208.33286125672424,345.59213265935375],[218.7572582005916,387.8420226184421],[238.05602796784459,425.088967970032],[265.11448112303196,455.8819631897536],[297.0973581104822,481.7627157811983],[338.58111105331096,490.26536301177714],[372.88058663767373,475.6036099943754],[403.41238024630064,451.8372681024564],[426.3740827019434,420.3867402768769],[442.3342480830512,382.34653016744346],[449.4182217318078,338.96866187629206],[453.39435144319384,299.3794523274938],[450.441139326497,259.6153426894631],[441.6612469185149,242.79201671611912],[419.7558369319945,226.82042980404628],[384.8072367376997,223.11960289810074],[366.3388290883353,233.3464693139141],[225.81775181146506,241.02514001740275],[246.75024376569002,225.6383044796262],[280.2160434408353,223.8869275842222],[304.234319168871,230.17131049980838],[245.61114048057138,263.3701690636632],[269.4130810223981,251.80723425544392],[295.8478699184009,259.9657710845207],[270.3995001123113,265.00945281339665],[270.6504725540528,257.00119481926333],[416.1785717977998,265.50484121246535],[391.4354699801079,255.39643448418173],[371.7010824836271,261.2541957047186],[391.02250251497736,267.8328172055467],[390.0613125734965,262.2823447654188],[331.81206700284383,251.97986313317745],[304.52749161891495,309.3987148453998],[292.96568690453836,327.97318890872066],[303.96200627106816,337.1184061086077],[334.5971413678913,339.44463194548786],[364.5822345263164,338.3762373232682],[372.14154451615457,325.40896657228376],[364.84955125109974,307.7338543348104],[333.6525898717044,288.240890571091],[317.3361467483075,327.2933719733604],[353.4201703047158,330.900790035768],[285.6928034324574,390.7798982048518],[300.3341068022444,377.74647480995236],[318.83189446816334,368.3200345624673],[334.613071576044,370.8068638567046],[350.3724624034987,368.080280780516],[364.25989737334805,376.5697096931025],[378.6877728220585,391.6809828553747],[369.3345152135822,401.2785737485929],[358.24071932396816,408.7505712566689],[335.2800796674498,413.4633221523768],[318.047637986967,411.9716906375073],[298.0916829903302,402.54186472637383],[310.1182537602795,386.8013599516623],[334.403438131397,388.9743228912618],[357.01753419786434,387.1475657300366],[357.10058393876653,384.63597243819567],[335.23583143052196,386.22965071122314],[311.038949959176,384.5767302510401],[335.23256056527464,323.05074315646914],[255.95740156030294,256.0506833117081],[285.0417591627035,252.5790625835926],[283.2880577536266,263.2120700635426],[258.0599050733123,265.74735419394693],[404.726643621797,258.39281226216485],[378.9207252759134,256.20195706902683],[379.4683419984992,265.499131012352],[405.6715298447983,268.5572509819856]],
+          "drake3" : [[279.6258984561147,121.860311045503],[278.1362372511754,143.24157790603692],[277.3612915944508,168.75335998976044],[280.09759692381886,191.72798025794765],[287.1803254890237,211.58826565844421],[294.52672781331637,229.5085041253557],[307.8441865498442,247.6702451360171],[327.5009864011194,256.23724669245587],[347.59884309507686,254.56304990828284],[364.71027455534465,243.5771918458135],[379.54720030977256,229.38511348541593],[391.75954539322623,211.644286641417],[401.14330539807474,190.65329976442354],[408.6112698126255,169.45214342870725],[412.5304876753874,146.68657255162776],[403.66106075945174,133.18374313696242],[395.4399195750957,125.14641465081841],[379.6348498412087,122.2170603051745],[366.5146844467862,122.54507881466627],[296.84397656875893,112.31719671901148],[309.11772851321456,108.14514194518654],[325.54427399191206,111.55006357359018],[336.49204869538346,117.36015791555329],[304.69554400543564,128.0851963448872],[318.3122121550722,123.58456527253658],[330.17526141846,133.31820331017744],[316.5895182495298,133.30389837433202],[316.0755956748059,126.7205182911253],[392.8305648463273,143.05091392979617],[382.2262845564456,134.81241013005214],[367.86186601343434,139.71764407432178],[379.4272374140939,143.43816042218052],[381.1559830403134,138.22022735274058],[350.1345531390727,132.2206394065287],[331.0973046907206,157.61164674977962],[323.13190671713573,166.21877894676436],[327.1412230330427,174.0030941817713],[342.2315557659662,179.71829827843163],[356.8238627103262,179.48311697033577],[363.0347204081282,173.7106235093675],[359.3882846935805,163.0146641021034],[347.75274198974836,150.85784915883735],[333.05148166134256,171.2481068284664],[353.67353082267516,175.5055410545735],[310.53805050858074,201.11852928345476],[322.20354437858384,197.5426358815923],[332.6965453963996,194.78753052273262],[339.03511688001043,200.9224553896397],[347.1483704261044,198.56623469709473],[355.3421142976322,203.9766218869157],[363.56502255073997,212.6280875186034],[355.1469748577905,215.98050313019135],[345.8598870892926,220.05069487920215],[333.5234529841897,219.58867942794365],[322.539010634111,215.11335335098065],[314.42704930936907,208.83521627911838],[326.15475738595484,202.69904095193763],[338.490116239014,206.24137223362234],[348.8205053977172,207.0651827319836],[349.2724527540608,207.24930892244475],[338.08487868851876,205.32191814324247],[326.10105409209547,202.50497680511728],[345.2450334942981,168.68716859352244],[310.34787576175876,124.30629712687349],[325.64529695357425,128.07438180352864],[323.59634868510057,133.71427360564667],[310.093241067311,131.20632325467943],[388.7007647947093,138.2906458601653],[372.85696309525736,135.72228929290398],[373.84370610826954,141.1888618803587],[385.1548955264353,143.91638137848125]]
+      };
+
+      var currentMask = 0;
+
+      // canvas for copying the warped face to
+      var newcanvas = document.createElement('CANVAS');
+      newcanvas.width = vid.width;
+      newcanvas.height = vid.height;
+      // canvas for copying videoframes to
+      var videocanvas = document.createElement('CANVAS');
+      videocanvas.width = vid.width;
+      videocanvas.height = vid.height;
+      // canvas for masking
+      var maskcanvas = document.createElement('CANVAS');
+      maskcanvas.width = vid.width;
+      maskcanvas.height = vid.height;
+
+      // create canvases for all the faces
+      var imageCanvases = {};
+      var imageCount = 0;
+      loadMask = function(index){
+        var mask = new Image();
+        mask.onload = function(obj){
+          var elementId = images[index].id;
+
+          // copy the images to canvases
+          imagecanvas = document.createElement('CANVAS');
+          imagecanvas.width = obj.target.width;
+          imagecanvas.height = obj.target.height;
+          imagecanvas.getContext('2d').drawImage(obj.target,0,0);
+          imageCanvases[elementId] = imagecanvas;
+
+          imageCount += 1;
+          if (imageCount == images.length) {
+            imagesReady = true;
+          }
+          enablestart();
+        }
+                mask.src = images[index].path;
+      }
+      //load masks
+      for (var i = 0;i < images.length;i++) {
+        loadMask(i);
+      }
+
+      var extended_vertices = [
+        [0,71,72,0],
+        [0,72,1,0],
+        [1,72,73,1],
+        [1,73,2,1],
+        [2,73,74,2],
+        [2,74,3,2],
+        [3,74,75,3],
+        [3,75,4,3],
+        [4,75,76,4],
+        [4,76,5,4],
+        [5,76,77,5],
+        [5,77,6,5],
+        [6,77,78,6],
+        [6,78,7,6],
+        [7,78,79,7],
+        [7,79,8,7],
+        [8,79,80,8],
+        [8,80,9,8],
+        [9,80,81,9],
+        [9,81,10,9],
+        [10,81,82,10],
+        [10,82,11,10],
+        [11,82,83,11],
+        [11,83,12,11],
+        [12,83,84,12],
+        [12,84,13,12],
+        [13,84,85,13],
+        [13,85,14,13],
+        [14,85,86,14],
+        [14,86,15,14],
+        [15,86,87,15],
+        [15,87,16,15],
+        [16,87,88,16],
+        [16,88,17,16],
+        [17,88,89,17],
+        [17,89,18,17],
+        [18,89,90,18],
+        [18,90,22,18],
+        [22,90,21,22],
+        [21,90,91,21],
+        [21,20,91,21],
+        [20,91,92,20],
+        [20,92,19,20],
+        [19,92,93,19],
+        [19,93,71,19],
+        [19,0,71,19],
+        [44,61,56,44],
+        [60,61,56,60],
+        [60,56,57,60],
+        [60,59,57,60],
+        [58,59,57,58],
+        [58,59,50,58]
+      ];
+
+      function drawGridLoop() {
+        // get position of face
+        positions = ctrack.getCurrentPosition(vid);
+
+        overlayCC.clearRect(0, 0, 500, 375);
+        if (positions) {
+          // draw current grid
+          ctrack.draw(overlay);
+        }
+        // check whether mask has converged
+        var pn = ctrack.getConvergence();
+        if (pn < 0.4) {
+          switchMasks(positions);
+        } else {
+          requestAnimFrame(drawGridLoop);
+        }
+      }
+
+      function switchMasks(pos) {
+        videocanvas.getContext('2d').drawImage(vid,0,0,videocanvas.width,videocanvas.height);
+
+        // we need to extend the positions with new estimated points in order to get pixels immediately outside mask
+        var newMaskPos = masks[images[currentMask].id].slice(0);
+        var newFacePos = pos.slice(0);
+        var extInd = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,22,21,20,19];
+        var newp;
+        for (var i = 0;i < 23;i++) {
+          newp = [];
+          newp[0] = (newMaskPos[extInd[i]][0]*1.3) - (newMaskPos[62][0]*0.3);// short for ((newMaskPos[extInd[i]][0]-newMaskPos[62][0])*1.1)+newMaskPos[62][0]
+          newp[1] = (newMaskPos[extInd[i]][1]*1.3) - (newMaskPos[62][1]*0.3);
+          newMaskPos.push(newp);
+          newp = [];
+          newp[0] = (newFacePos[extInd[i]][0]*1.3) - (newFacePos[62][0]*0.3);
+          newp[1] = (newFacePos[extInd[i]][1]*1.3) - (newFacePos[62][1]*0.3);
+          newFacePos.push(newp);
+        }
+        // also need to make new vertices incorporating area outside mask
+        var newVertices = pModel.path.vertices.concat(extended_vertices);
+
+        // deform the mask we want to use to face form
+        fd2.load(imageCanvases[images[currentMask].id], newMaskPos, pModel, newVertices);
+        fd2.draw(newFacePos);
+        // and copy onto new canvas
+        newcanvas.getContext('2d').drawImage(document.getElementById('webgl2'),0,0);
+
+        // create masking
+        var tempcoords = positions.slice(0,18);
+        tempcoords.push(positions[21]);
+        tempcoords.push(positions[20]);
+        tempcoords.push(positions[19]);
+        createMasking(maskcanvas, tempcoords);
+
+        /*document.body.appendChild(newcanvas);
+        document.body.appendChild(videocanvas);
+        document.body.appendChild(maskcanvas);
+        debugger;*/
+
+        // do poisson blending
+        Poisson.load(newcanvas, videocanvas, maskcanvas, function() {
+          var result = Poisson.blend(30, 0, 0);
+          // render to canvas
+          newcanvas.getContext('2d').putImageData(result, 0, 0);
+          // get mask
+
+          var maskname = Object.keys(masks)[currentMask];
+          fd.load(newcanvas, pos, pModel);
+          requestAnimFrame(drawMaskLoop);
+        });
+      }
+
+      function drawMaskLoop() {
+        // get position of face
+        positions = ctrack.getCurrentPosition();
+
+        /*for (var i = 0;i < positions.length;i++) {
+          positions[i][1] += 1;
+        }*/
+
+        overlayCC.clearRect(0, 0, 400, 300);
+        if (positions) {
+          // draw mask on top of face
+          fd.draw(positions);
+        }
+        animationRequest = requestAnimFrame(drawMaskLoop);
+      }
+
+      function createMasking(canvas, modelpoints) {
+        // fill canvas with black
+        var cc = canvas.getContext('2d');
+        cc.fillStyle="#000000";
+        cc.fillRect(0,0,canvas.width, canvas.height);
+        cc.beginPath();
+        cc.moveTo(modelpoints[0][0], modelpoints[0][1]);
+        for (var i = 1;i < modelpoints.length;i++) {
+          cc.lineTo(modelpoints[i][0], modelpoints[i][1]);
+        }
+        cc.lineTo(modelpoints[0][0], modelpoints[0][1]);
+        cc.closePath();
+        cc.fillStyle="#ffffff";
+        cc.fill();
+      }
+
+    </script>
+  </div>
+</body>
 </html>

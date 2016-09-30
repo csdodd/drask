@@ -19,6 +19,9 @@ body {
 	-ms-filter : fliph; /*IE*/
 	filter : fliph; /*IE*/
 }
+#webgl2 {
+	display : none;
+}
 #videoel {
 	-o-transform : scaleX(-1);
 	-webkit-transform : scaleX(-1);
@@ -55,6 +58,10 @@ body {
 h2 {
 	font-weight : 400;
 	text-align: center;
+}
+select {
+	margin: 0 auto;
+	display: block;
 }
 .masks {
 	display: none;
