@@ -19,5 +19,162 @@
   <meta name="msapplication-TileColor" content="#ffffff">
   <meta name="msapplication-TileImage" content="/img/ms-icon-144x144.png">
   <meta name="theme-color" content="#ffffff">
+  <link rel="stylesheet" type="text/css" href="/css/index.css">
+  <script src="js/clmtrackr.min.js"></script>
+  <script src="js/model_pca_20_svm.js"></script>
   <title>Get ya Drask on.</title>
 </head>
+
+<body>
+		<script src="./ext_js/dat.gui.min.js"></script>
+		<script src="./ext_js/utils.js"></script>
+		<script src="./ext_js/jsfeat-min.js"></script>
+		<script src="./ext_js/frontalface.js"></script>
+		<script src="./ext_js/jsfeat_detect.js"></script>
+		<script src="./ext_js/numeric-1.2.6.min.js"></script>
+		<script src="./ext_js/mosse.js"></script>
+		<script src="./ext_js/left_eye_filter.js"></script>
+		<script src="./ext_js/right_eye_filter.js"></script>
+		<script src="./ext_js/nose_filter.js"></script>
+		<script src="../models/model_pca_20_svm.js"></script>
+		<script src="../js/clm.js"></script>
+		<script src="../js/svmfilter_webgl.js"></script>
+		<script src="../js/svmfilter_fft.js"></script>
+		<script src="../js/mossefilter.js"></script>
+		<script src="../js/face_deformer.js"></script>
+		<div id="content">
+			<div id="container">
+				<!--<video id="videoel" width="500" height="375" preload="auto">-->
+				<video id="videoel" width="400" height="300" preload="auto">
+					<!--<source src="./media/Capture_1_092.ogv" type="video/ogg"/>-->
+				</video>
+				<canvas id="webgl" width="400" height="300"></canvas>
+			</div>
+			<br/>
+			<div id="text">
+				<div id="nogum" class="hide">
+					<p>There was some problem trying to capture your webcamera, please check that your browser supports WebRTC. Using a fallback video instead.</p>
+				</div>
+			</div>
+      <img id="drake" class="masks" src="./media/drake1.jpg"></img>
+			<script>
+				var vid = document.getElementById('videoel');
+
+				var ctrack = new clm.tracker();
+				ctrack.init(pModel);
+
+				function enablestart() {
+					startVideo();
+				}
+
+				var insertAltVideo = function(video) {
+
+					if (supports_video()) {
+						if (supports_ogg_theora_video()) {
+							video.src = "./media/cap13_edit2.ogv";
+						} else if (supports_h264_baseline_video()) {
+							video.src = "./media/cap13_edit2.mp4";
+						} else {
+							return false;
+						}
+						//video.play();
+						return true;
+					} else return false;
+				}
+
+				// check whether browser supports webGL
+				var webGLContext;
+				var webGLTestCanvas = document.createElement('canvas');
+				if (window.WebGLRenderingContext) {
+					webGLContext = webGLTestCanvas.getContext('webgl') || webGLTestCanvas.getContext('experimental-webgl');
+					if (!webGLContext || !webGLContext.getExtension('OES_texture_float')) {
+						webGLContext = null;
+					}
+				}
+				if (webGLContext == null) {
+					alert("Your browser does not seem to support WebGL. Unfortunately this face mask example depends on WebGL, so you'll have to try it in another browser. :(");
+				}
+
+				navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+				window.URL = window.URL || window.webkitURL || window.msURL || window.mozURL;
+
+				// check for camerasupport
+				if (navigator.getUserMedia) {
+					// set up stream
+
+					// chrome 19 shim
+					var videoSelector = {video : true};
+					if (window.navigator.appVersion.match(/Chrome\/(.*?) /)) {
+						var chromeVersion = parseInt(window.navigator.appVersion.match(/Chrome\/(\d+)\./)[1], 10);
+						if (chromeVersion < 20) {
+							videoSelector = "video";
+						}
+					};
+
+					navigator.getUserMedia(videoSelector, function( stream ) {
+						if (vid.mozCaptureStream) {
+							vid.mozSrcObject = stream;
+						} else {
+							vid.src = (window.URL && window.URL.createObjectURL(stream)) || stream;
+						}
+						vid.play();
+					}, function() {
+						insertAltVideo(vid);
+						document.getElementById('nogum').className = "nohide";
+					});
+				} else {
+					insertAltVideo(vid)
+					document.getElementById('nogum').className = "nohide";
+				}
+
+				vid.addEventListener('canplay', enablestart, false);
+
+				function startVideo() {
+					// start video
+					vid.play();
+					// start tracking
+					ctrack.start(vid);
+					// start drawing face grid
+					drawGridLoop();
+				}
+
+				var positions;
+				var fd = new faceDeformer();
+				fd.init(document.getElementById('webgl'));
+
+				var masks = {
+					"drake" : [[501.9643394612414,495.47200844750984],[502.142125936498,584.8872099203737],[515.3798573224177,666.8568578662934],[538.170368831663,741.4724120943437],[568.3211690895713,797.9870763250963],[615.1530245694933,854.3925068453999],[659.7942703455128,880.9656480239753],[704.2250596632006,884.9633113755516],[759.5091057999696,876.2285694507415],[799.3310301572574,857.6299975502469],[845.0670741024176,820.1060723523893],[887.6658366534455,763.0530404205214],[916.5992773442017,685.9420207782356],[921.5559612860181,597.9154784099603],[922.7549822460775,487.79721655026],[896.4096022715813,480.0352173139431],[887.3209421990076,452.4890973092367],[829.9782108975144,433.23505269999106],[776.9359324941549,440.9702360363998],[529.744620332579,486.1007833515623],[553.6537637828768,442.23506194592403],[613.2948253615716,433.80888994782356],[652.3795021470816,442.73822975461604],[563.6921676832196,508.90943867879434],[605.5112904568363,485.80443298889645],[652.4583435191629,507.1223757275101],[605.5740471896798,519.9394947698688],[610.525204850413,499.5201354256822],[868.2099062526822,507.0401607612514],[825.4639819056449,481.9320358111275],[777.1552115472383,504.37280447675266],[827.467282301357,514.2026780650706],[817.1470367053438,493.92927091513644],[716.575407608373,492.91519584148074],[664.6924063996192,592.6824443435181],[648.6080071004066,624.8097527747366],[662.4142787810073,651.654802319131],[716.6915535470237,659.7586894681015],[769.8187210595744,645.2167767539679],[783.795162111659,625.5950000035427],[763.1476164888139,586.7518478606074],[714.6042829728927,556.979867439787],[685.3837037007181,652.925940233728],[746.9931026845552,645.6450569645758],[629.7632728334304,725.2500917255202],[660.2781493375543,718.6564622905099],[693.9582576628362,702.8437223581216],[715.6230051447897,715.3650728688626],[743.6590597290327,699.2355831088313],[780.9280000087853,713.4556435918539],[809.7453049388122,734.506721827075],[774.7334963199983,764.1357246490251],[755.8047854407506,774.8072922420603],[720.4371998161832,780.1796059986312],[686.3734239294696,780.0434626505643],[660.1046229930791,771.0196107800159],[675.7863254722528,735.2481925161736],[718.4588759672423,738.5640950449517],[753.2699724154817,727.7375120688581],[752.0817743965955,725.5035477800105],[717.7420622093732,733.3695242543861],[675.9131515174233,729.2500383530223],[715.3126655352173,638.8886988649206],[581.0651163583224,495.8122348798231],[635.5984587674357,493.7055437279576],[629.7363480457074,516.4003860123875],[583.0351036423909,517.9494893178016],[851.4553543479446,488.4059489474364],[799.7359214469391,488.2883229587516],[802.5889263350832,511.0413138787222],[847.5689566608678,510.28032872317084]]
+				};
+				var currentMask = 0;
+				var animationRequest;
+
+				function drawGridLoop() {
+					// check whether mask has converged
+					var pn = ctrack.getConvergence();
+					if (pn < 0.4) {
+						loadMask();
+						requestAnimFrame(drawMaskLoop);
+					} else {
+						requestAnimFrame(drawGridLoop);
+					}
+				}
+
+				function loadMask() {
+					var maskname = "drake";
+					fd.load(document.getElementById(maskname), masks[maskname], pModel);
+				}
+
+				function drawMaskLoop() {
+					// get position of face
+					positions = ctrack.getCurrentPosition();
+					if (positions) {
+						// draw mask on top of face
+						fd.draw(positions);
+					}
+					animationRequest = requestAnimFrame(drawMaskLoop);
+				}
+
+			</script>
+		</div>
+	</body>
+</html>
