@@ -1,0 +1,26 @@
+{
+  "name": "drask",
+  "version": "1.0.0",
+  "description": "Friday Fun",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies" : {
+    "express" : "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/csdodd/drask.git"
+  },
+  "keywords": [
+    "friday",
+    "fun"
+  ],
+  "author": "Colin Dodd",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/csdodd/drask/issues"
+  },
+  "homepage": "https://github.com/csdodd/drask#readme"
+}
